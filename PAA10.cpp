@@ -1,124 +1,198 @@
-#include <unordered_map>
-#include <vector>
-#include <limits>
-#include <algorithm>
 #include <iostream>
-
+#include <limits>
 using namespace std;
+
+#define MAXV 1000
+
+class EdgeNode
+{
+public:
+    int key;
+    int weight;
+    EdgeNode *next;
+    EdgeNode(int, int);
+};
+
+EdgeNode::EdgeNode(int key, int weight)
+{
+    this->key = key;
+    this->weight = weight;
+    this->next = NULL;
+}
 
 class Graph
 {
-    unordered_map<char, const unordered_map<char, int>> vertices;
-    
-public:
-    void add_vertex(char name, const unordered_map<char, int>& edges)
-    {
-        vertices.insert(unordered_map<char, const unordered_map<char, int>>::value_type(name, edges));
-    }
-    
-    vector<char> shortest_path(char start, char finish)
-    {
-        unordered_map<char, int> distances;
-        unordered_map<char, char> previous;
-        vector<char> nodes;
-        vector<char> path;
-        
-        auto comparator = [&] (char left, char right) { return distances[left] > distances[right]; };
+    bool directed;
 
-        for (auto& vertex : vertices)
-        {
-            if (vertex.first == start)
-            {
-                distances[vertex.first] = 0;
-            }
-            else
-            {
-                distances[vertex.first] = numeric_limits<int>::max();
-            }
-            
-            nodes.push_back(vertex.first);
-            push_heap(begin(nodes), end(nodes), comparator);
-        }
-        
-        while (!nodes.empty())
-        {
-            pop_heap(begin(nodes), end(nodes), comparator);
-            char smallest = nodes.back();
-            nodes.pop_back();
-            
-            if (smallest == finish)
-            {
-                while (previous.find(smallest) != end(previous))
-                {
-                    path.push_back(smallest);
-                    smallest = previous[smallest];
-                }
-                
-                break;
-            }
-            
-            if (distances[smallest] == numeric_limits<int>::max())
-            {
-                break;
-            }
-            
-            for (auto& neighbor : vertices[smallest])
-            {
-                int alt = distances[smallest] + neighbor.second;
-                if (alt < distances[neighbor.first])
-                {
-                    distances[neighbor.first] = alt;
-                    previous[neighbor.first] = smallest;
-                    make_heap(begin(nodes), end(nodes), comparator);
-                }
-            }
-        }
-        
-        return path;
-    }
+public:
+    EdgeNode *edges[MAXV + 1];
+    Graph(bool);
+    ~Graph();
+    void insert_edge(int, int, int, bool);
+    void print();
 };
+
+Graph::Graph(bool directed)
+{
+    this->directed = directed;
+    for (int i = 1; i < (MAXV + 1); i++)
+    {
+        this->edges[i] = NULL;
+    }
+}
+
+Graph::~Graph()
+{
+}
+
+void Graph::insert_edge(int x, int y, int weight, bool directed)
+{
+    if (x > 0 && x < (MAXV + 1) && y > 0 && y < (MAXV + 1))
+    {
+        EdgeNode *edge = new EdgeNode(y, weight);
+        edge->next = this->edges[x];
+        this->edges[x] = edge;
+        if (!directed)
+        {
+            insert_edge(y, x, weight, true);
+        }
+    }
+}
+
+void Graph::print()
+{
+    for (int v = 1; v < (MAXV + 1); v++)
+    {
+        if (this->edges[v] != NULL)
+        {
+            cout << "Vertex " << v << " has neighbors: " << endl;
+            EdgeNode *curr = this->edges[v];
+            while (curr != NULL)
+            {
+                cout << curr->key << endl;
+                curr = curr->next;
+            }
+        }
+    }
+}
+
+void init_vars(bool discovered[], int distance[], int parent[])
+{
+    for (int i = 1; i < (MAXV + 1); i++)
+    {
+        discovered[i] = false;
+        distance[i] = std::numeric_limits<int>::max();
+        parent[i] = -1;
+    }
+}
+
+void dijkstra_shortest_path(Graph *g, int parent[], int distance[], int start)
+{
+
+    bool discovered[MAXV + 1];
+    EdgeNode *curr;
+    int v_curr;
+    int v_neighbor;
+    int weight;
+    int smallest_dist;
+
+    init_vars(discovered, distance, parent);
+
+    distance[start] = 0;
+    v_curr = start;
+
+    while (discovered[v_curr] == false)
+    {
+
+        discovered[v_curr] = true;
+        curr = g->edges[v_curr];
+
+        while (curr != NULL)
+        {
+
+            v_neighbor = curr->key;
+            weight = curr->weight;
+
+            if ((distance[v_curr] + weight) < distance[v_neighbor])
+            {
+                distance[v_neighbor] = distance[v_curr] + weight;
+                parent[v_neighbor] = v_curr;
+            }
+            curr = curr->next;
+        }
+
+        smallest_dist = std::numeric_limits<int>::max();
+        for (int i = 1; i < (MAXV + 1); i++)
+        {
+            if (!discovered[i] && (distance[i] < smallest_dist))
+            {
+                v_curr = i;
+                smallest_dist = distance[i];
+            }
+        }
+    }
+}
+
+void print_shortest_path(int v, int parent[])
+{
+    if (v > 0 && v < (MAXV + 1) && parent[v] != -1)
+    {
+        cout << " < " << parent[v];
+        print_shortest_path(parent[v], parent);
+    }
+}
+
+void print_distances(int start, int distance[])
+{
+    for (int i = 1; i < (MAXV + 1); i++)
+    {
+        if (distance[i] != std::numeric_limits<int>::max())
+        {
+            cout << "Menor distância de " << start << " para " << i << " é: " << distance[i] << endl;
+        }
+    }
+}
 
 int main()
 {
-    Graph g;
-    g.add_vertex('A', {{'B', 2}, {'C', 5}});
-    g.add_vertex('B', {{'C', 4}, {'D', 3}});
-    g.add_vertex('C', {{'E', 6}});
-    g.add_vertex('D', {{'A', 1}});
-    g.add_vertex('E', {{'A', 4}});
-    
-    cout << endl << endl;
-    cout << "São Paulo até Ribeirão Preto:" << endl;
-    cout << "A";
-    for (char vertex : g.shortest_path('A', 'B'))
-    {
-        cout << " -> " << vertex;
-    }
 
-    cout << endl << endl;
-    cout << "São Paulo até Poços de Caldas:" << endl;
-    cout << "A";
-        for (char vertex : g.shortest_path('A', 'C'))
-    {
-        cout << " -> " << vertex;
-    }
+    Graph *g = new Graph(false);
+    int parent[MAXV + 1];
+    int distance[MAXV + 1];
+    int start = 1;
 
-    cout << endl << endl;
-    cout << "São Paulo até Campinas:" << endl;
-    cout << "A";
-        for (char vertex : g.shortest_path('A', 'D'))
-    {
-        cout << " -> " << vertex;
-    }
+    g->insert_edge(1, 2, 2, false);
+    g->insert_edge(1, 3, 5, false);
+    g->insert_edge(2, 4, 3, false);
+    g->insert_edge(2, 1, 7, false);
+    g->insert_edge(3, 5, 6, false);
 
-    cout << endl << endl;
-    cout << "São Paulo até Rio de Janeiro:" << endl;
-    cout << "A";
-        for (char vertex : g.shortest_path('A', 'E'))
-    {
-        cout << " -> " << vertex;
-    }
+    dijkstra_shortest_path(g, parent, distance, start);
+
+    print_distances(start, distance);
+
+    cout << endl;
+    cout << "Caminho reverso RJ - SP" << endl;
+    cout << "5";
+    print_shortest_path(5, parent);
+
+    cout << endl;
+    cout << "Caminho reverso Campinas - SP" << endl;
+    cout << "4";
+    print_shortest_path(4, parent);
+
+    cout << endl;
+    cout << "Caminho reverso Poços de Caldas - SP" << endl;
+    cout << "3";
+    print_shortest_path(3, parent);
+
+    cout << endl;
+    cout << "Caminho reverso Ribeirão Preto - SP" << endl;
+    cout << "2";
+    print_shortest_path(2, parent);
+
     cout << endl;
 
+    delete g;
     return 0;
 }
